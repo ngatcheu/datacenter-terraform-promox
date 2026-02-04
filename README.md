@@ -1,54 +1,104 @@
-# Déploiement VMs Proxmox avec Terraform
+# Datacenter Terraform Proxmox
 
-Infrastructure as Code pour déployer des VMs sur Proxmox VE pour un Kubernetes homelab.
+Infrastructure as Code pour deployer un homelab Kubernetes sur Proxmox VE avec Terraform.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Proxmox VE                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  🎯 CLUSTER RANCHER (cluster-rancher)                       │
-│  ├─ rancher-1      → 192.168.1.110 → 2C/8 GB/25 G          │
-│  ├─ rancher-2      → 192.168.1.111 → 2C/8 GB/25 G          │
-│  └─ rancher-3      → 192.168.1.112 → 2C/8 GB/25 G          │
-│                                                             │
-│  🔧 CLUSTER PAYLOAD (cluster-payload)                       │
-│  ├─ payload-master-1 → 192.168.1.113 → 2C/4 GB/25 G        │
-│  ├─ payload-master-2 → 192.168.1.114 → 2C/4 GB/25 G        │
-│  ├─ payload-master-3 → 192.168.1.115 → 2C/4 GB/25 G        │
-│  ├─ payload-worker-1 → 192.168.1.116 → 3C/8 GB/25 G        │
-│  ├─ payload-worker-2 → 192.168.1.117 → 3C/8 GB/25 G        │
-│  └─ payload-worker-3 → 192.168.1.118 → 3C/8 GB/25 G        │
-│                                                             │
-│  📦 SERVICES                                                │
-│  └─ cicd             → 192.168.1.119 → 2C/8 GB/25 G        │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                       Proxmox VE                            |
++-------------------------------------------------------------+
+|                                                             |
+|  CLUSTER RANCHER (Control Plane RKE2)                       |
+|  +- rancher-1      -> 192.168.1.110 -> 2C/8GB/25G          |
+|  +- rancher-2      -> 192.168.1.111 -> 2C/8GB/25G          |
+|  +- rancher-3      -> 192.168.1.112 -> 2C/8GB/25G          |
+|                                                             |
+|  CLUSTER PAYLOAD (Workloads)                                |
+|  +- payload-master-1 -> 192.168.1.113 -> 2C/4GB/25G        |
+|  +- payload-master-2 -> 192.168.1.114 -> 2C/4GB/25G        |
+|  +- payload-master-3 -> 192.168.1.115 -> 2C/4GB/25G        |
+|  +- payload-worker-1 -> 192.168.1.116 -> 3C/8GB/25G        |
+|  +- payload-worker-2 -> 192.168.1.117 -> 3C/8GB/25G        |
+|  +- payload-worker-3 -> 192.168.1.118 -> 3C/8GB/25G        |
+|                                                             |
+|  SERVICES                                                   |
+|  +- cicd             -> 192.168.1.119 -> 2C/8GB/25G        |
+|                                                             |
++-------------------------------------------------------------+
 ```
 
-## Prérequis
+## Ressources
+
+| VM | Role | ID | IP | CPU | RAM | Disque |
+|----|------|----|----|-----|-----|--------|
+| rancher-1 | Control Plane | 110 | 192.168.1.110 | 2 | 8 GB | 25 GB |
+| rancher-2 | Control Plane | 111 | 192.168.1.111 | 2 | 8 GB | 25 GB |
+| rancher-3 | Control Plane | 112 | 192.168.1.112 | 2 | 8 GB | 25 GB |
+| payload-master-1 | K8s Master | 113 | 192.168.1.113 | 2 | 4 GB | 25 GB |
+| payload-master-2 | K8s Master | 114 | 192.168.1.114 | 2 | 4 GB | 25 GB |
+| payload-master-3 | K8s Master | 115 | 192.168.1.115 | 2 | 4 GB | 25 GB |
+| payload-worker-1 | K8s Worker | 116 | 192.168.1.116 | 3 | 8 GB | 25 GB |
+| payload-worker-2 | K8s Worker | 117 | 192.168.1.117 | 3 | 8 GB | 25 GB |
+| payload-worker-3 | K8s Worker | 118 | 192.168.1.118 | 3 | 8 GB | 25 GB |
+| cicd | CI/CD Server | 119 | 192.168.1.119 | 2 | 8 GB | 25 GB |
+
+**Total : 10 VMs - 22 vCPUs - 68 GB RAM - 250 GB Stockage**
+
+## Prerequis
 
 - Terraform >= 1.12.2
-- Accès à un serveur Proxmox VE (v7.0+)
-- Template Rocky Linux 9 (cloud-init)
-- SSH public key configurée
+- Proxmox VE >= 7.0
+- Acces SSH root au serveur Proxmox
+- Reseau configure (vmbr0)
 
-## Démarrage rapide
+## Structure du projet
 
-### 1. Configurer les variables
-
-Créez/modifiez `terraform.tfvars` :
-
-```hcl
-proxmox_password = "votre-mot-de-passe"
-ssh_public_key   = "ssh-rsa AAAAB3..."
-proxmox_host     = "192.168.1.100"
-proxmox_node     = "devsecops-dojo"
+```
+src/
++-- main.tf                    # Definition des 10 VMs
++-- variables.tf               # Variables Terraform
++-- terraform.tfvars           # Valeurs des variables
++-- providers.tf               # Provider bpg/proxmox v0.50.0
++-- outputs.tf                 # Outputs (IDs, noms, IPs)
++-- template-init.tf           # Creation auto du template Rocky 9
++-- create-rocky9-template.sh  # Script de creation du template
 ```
 
-### 2. Déployer
+## Configuration
+
+### 1. Cloner le projet
+
+```bash
+git clone <repo-url>
+cd datacenter-terraform-promox/src
+```
+
+### 2. Configurer les variables
+
+Editez `terraform.tfvars` :
+
+```hcl
+# Connexion Proxmox
+proxmox_node     = "devsecops-dojo"
+proxmox_host     = "192.168.1.100"
+proxmox_password = "votre-mot-de-passe"
+
+# Reseau
+ip_address_base = "192.168.1"
+ip_start        = 110
+gateway         = "192.168.1.1"
+nameserver      = "192.168.1.1"
+network_bridge  = "vmbr0"
+
+# SSH
+ssh_public_key = "ssh-rsa AAAAB3..."
+
+# Stockage
+vm_storage = "local-lvm"
+```
+
+### 3. Deployer
 
 ```bash
 terraform init
@@ -56,69 +106,162 @@ terraform plan
 terraform apply
 ```
 
-**Le script de création du template Rocky Linux 9 s'exécutera automatiquement via SSH.**
+Le template Rocky Linux 9 sera cree automatiquement via SSH si absent.
 
-## Fichiers
+## Variables disponibles
 
-| Fichier | Description |
-|---------|-------------|
-| `main.tf` | Définition des 10 VMs (Rancher + Payload + CI/CD) |
-| `variables.tf` | Variables Terraform |
-| `terraform.tfvars` | Valeurs des variables |
-| `providers.tf` | Configuration du provider Proxmox bpg/proxmox v0.50.0 |
-| `outputs.tf` | Outputs : IDs, noms, IPs des VMs |
-| `template-init.tf` | Création automatique du template Rocky 9 via SSH |
-| `create-rocky9-template.sh` | Script de création du template Rocky 9 |
+### Proxmox
 
-## Ressources déployées
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `proxmox_node` | Nom du noeud Proxmox | `devsecops-dojo` |
+| `proxmox_host` | IP du serveur Proxmox | `192.168.1.100` |
+| `proxmox_password` | Mot de passe root | - |
+| `vm_id_start` | ID de depart des VMs | `110` |
 
-**Total : 10 VMs**
-- 3 VMs Rancher (Control Plane Kubernetes) : 2C / 8 GB RAM / 25 GB disque
-- 3 VMs Payload Masters : 2C / 4 GB RAM / 25 GB disque
-- 3 VMs Payload Workers : 3C / 8 GB RAM / 25 GB disque
-- 1 VM CI/CD : 2C / 8 GB RAM / 25 GB disque
+### Reseau
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `network_bridge` | Bridge reseau | `vmbr0` |
+| `ip_address_base` | Base IP (ex: 192.168.1) | `192.168.1` |
+| `ip_start` | Premiere IP | `110` |
+| `gateway` | Passerelle | `192.168.1.1` |
+| `nameserver` | Serveur DNS | `192.168.1.1` |
+
+### Ressources VMs
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `rancher_cpu_cores` | CPU Rancher | `2` |
+| `rancher_memory` | RAM Rancher (MB) | `8192` |
+| `payload_master_cpu_cores` | CPU Payload Masters | `2` |
+| `payload_master_memory` | RAM Payload Masters (MB) | `4096` |
+| `payload_worker_cpu_cores` | CPU Payload Workers | `3` |
+| `payload_worker_memory` | RAM Payload Workers (MB) | `8192` |
+| `cicd_cpu_cores` | CPU CI/CD | `2` |
+| `cicd_memory` | RAM CI/CD (MB) | `8192` |
+
+## Template Rocky Linux 9
+
+Le template cloud-init est cree automatiquement avec :
+
+- **ID** : 9100
+- **Nom** : rocky-9-cloud-template
+- **Image** : Rocky-9-GenericCloud-Base
+- **Config** : cloud-init, qemu-agent, virtio-scsi
+
+Si le template existe deja (ID 9100), le script ne fait rien.
+
+### Creation manuelle
+
+```bash
+# Sur le serveur Proxmox
+bash /tmp/create-rocky9-template.sh
+```
+
+## Outputs
+
+Apres `terraform apply` :
+
+```bash
+# Voir tous les outputs
+terraform output
+
+# Outputs disponibles
+terraform output rancher_vm_names
+terraform output rancher_vm_ids
+terraform output payload_vm_names
+terraform output payload_vm_ids
+terraform output cicd_vm_name
+terraform output cicd_vm_id
+terraform output all_vm_names
+terraform output all_vm_ids
+terraform output deployment_summary
+```
 
 ## Commandes utiles
 
 ```bash
-# Voir l'état
-terraform output
+# Initialiser
+terraform init
 
-# Modifier et appliquer
+# Planifier
 terraform plan
+
+# Appliquer
 terraform apply
 
-# Supprimer l'infrastructure
+# Appliquer sans confirmation
+terraform apply -auto-approve
+
+# Voir l'etat
+terraform show
+
+# Detruire une VM specifique
+terraform destroy -target=proxmox_virtual_environment_vm.cicd
+
+# Detruire tout
 terraform destroy
 ```
 
-## Dépannage
+## Depannage
 
-### Template non trouvé
+### Template non trouve
+
 ```bash
-# Exécuter sur Proxmox
-/tmp/create-rocky9-template.sh
+# Verifier sur Proxmox
+qm list | grep 9100
+
+# Creer manuellement
+bash /tmp/create-rocky9-template.sh
 ```
 
-### VMs déjà existantes
+### VMs deja existantes
+
 ```bash
 # Avec Terraform
 terraform destroy
 
-# Ou manuellement sur Proxmox
-for i in {110..119}; do qm destroy $i; done
+# Manuellement sur Proxmox
+for i in {110..119}; do qm stop $i; qm destroy $i; done
 ```
 
-### Connexion SSH refusée
-1. Vérifier que la VM est démarrée : `qm status <ID>`
-2. Vérifier cloud-init via la console Proxmox
+### Erreur de connexion SSH
 
-## Sécurité
+1. Verifier que la VM est demarree : `qm status <ID>`
+2. Verifier cloud-init : Console Proxmox > VM > Console
+3. Verifier la cle SSH dans terraform.tfvars
 
-- `terraform.tfvars` contient des secrets - ne pas committer
-- `terraform.tfstate` contient l'état - utiliser un backend distant en production
-- Le dossier `.terraform/` est généré automatiquement
+### Erreur provider Proxmox
+
+```bash
+# Reinitialiser les providers
+rm -rf .terraform .terraform.lock.hcl
+terraform init
+```
+
+## Securite
+
+- `terraform.tfvars` contient des secrets - **ne pas committer**
+- `terraform.tfstate` contient l'etat complet - utiliser un backend distant en production
+- Le dossier `.terraform/` est genere automatiquement
 
 ## Provider
 
-Utilise **bpg/proxmox** : https://registry.terraform.io/providers/bpg/proxmox/latest
+- **Provider** : [bpg/proxmox](https://registry.terraform.io/providers/bpg/proxmox/latest)
+- **Version** : 0.50.0
+- **Documentation** : https://registry.terraform.io/providers/bpg/proxmox/latest/docs
+
+## Prochaines etapes
+
+1. Demarrer les VMs depuis Proxmox UI
+2. Se connecter : `ssh root@192.168.1.110`
+3. Installer RKE2 sur les nodes Rancher
+4. Configurer Rancher Manager
+5. Importer le cluster Payload dans Rancher
+6. Deployer les workloads
+
+## Licence
+
+MIT
