@@ -52,6 +52,43 @@ Infrastructure as Code pour deployer un homelab Kubernetes sur Proxmox VE avec T
 - Acces SSH root au serveur Proxmox
 - Reseau configure (vmbr0)
 
+## Utilisation rapide
+
+```bash
+# 1. Cloner le repository
+git clone https://github.com/ngatcheu/datacenter-terraform-promox.git
+cd datacenter-terraform-promox/src
+
+# 2. Configurer vos variables
+cp terraform.tfvars.example terraform.tfvars  # si exemple existe
+# Editez terraform.tfvars avec vos valeurs :
+#   - proxmox_password = "votre-mot-de-passe"
+#   - proxmox_host = "IP-de-votre-proxmox"
+#   - ssh_public_key = "votre-cle-ssh-publique"
+
+# 3. Initialiser Terraform
+terraform init
+
+# 4. Verifier le plan
+terraform plan
+
+# 5. Deployer l'infrastructure
+terraform apply
+
+# 6. Voir le resume du deploiement
+terraform output deployment_summary
+```
+
+### Apres le deploiement
+
+```bash
+# Se connecter a la premiere VM Rancher
+ssh root@192.168.1.110
+
+# Verifier que toutes les VMs sont accessibles
+for i in {110..119}; do ping -c 1 192.168.1.$i; done
+```
+
 ## Structure du projet
 
 ```
