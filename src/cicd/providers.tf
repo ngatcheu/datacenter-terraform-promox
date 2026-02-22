@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.12.2"
+  required_version = ">= 1.2.0"
 
   required_providers {
     proxmox = {
@@ -14,10 +14,8 @@ terraform {
 }
 
 provider "proxmox" {
-  endpoint = "https://192.168.1.100:8006"
-
+  endpoint = "https://${var.proxmox_host}:8006"
   username = "root@pam"
   password = var.proxmox_password
-
   insecure = true
 }

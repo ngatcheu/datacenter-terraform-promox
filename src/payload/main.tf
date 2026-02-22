@@ -1,147 +1,28 @@
-# ========================================
-# Configuration Terraform pour Proxmox
-# Provider: bpg/proxmox
-# 3 VMs Rancher + 6 VMs Payload + 1 VM CI/CD = 10 VMs
-# ========================================
+# ===== TEMPLATE ROCKY 9 =====
 
-# ===== VMs RANCHER (Control Plane) =====
-resource "proxmox_virtual_environment_vm" "rancher_1" {
-  name        = "rancher-1"
-  node_name   = var.proxmox_node
-  vm_id       = var.vm_id_start
-  description = "Rancher Kubernetes Control Plane Node 1"
-
-  clone {
-    vm_id = 9100
-    full  = true
+resource "null_resource" "rocky_template" {
+  connection {
+    type     = "ssh"
+    host     = var.proxmox_host
+    user     = "root"
+    password = var.proxmox_password
   }
 
-  cpu {
-    cores = var.rancher_cpu_cores
-    type  = "host"
+  provisioner "file" {
+    source      = "${path.module}/create-rocky9-template.sh"
+    destination = "/tmp/create-rocky9-template.sh"
   }
 
-  memory {
-    dedicated = var.rancher_memory
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/create-rocky9-template.sh",
+      "/tmp/create-rocky9-template.sh"
+    ]
   }
-
-  network_device {
-    bridge = var.network_bridge
-    model  = "virtio"
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "${var.ip_address_base}.${var.ip_start}/24"
-        gateway = var.gateway
-      }
-    }
-
-    dns {
-      servers = [var.nameserver]
-    }
-
-    user_account {
-      username = "root"
-      keys     = [var.ssh_public_key]
-    }
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "rancher_2" {
-  name        = "rancher-2"
-  node_name   = var.proxmox_node
-  vm_id       = var.vm_id_start + 1
-  description = "Rancher Kubernetes Control Plane Node 2"
-
-  clone {
-    vm_id = 9100
-    full  = true
-  }
-
-  cpu {
-    cores = var.rancher_cpu_cores
-    type  = "host"
-  }
-
-  memory {
-    dedicated = var.rancher_memory
-  }
-
-  network_device {
-    bridge = var.network_bridge
-    model  = "virtio"
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "${var.ip_address_base}.${var.ip_start + 1}/24"
-        gateway = var.gateway
-      }
-    }
-
-    dns {
-      servers = [var.nameserver]
-    }
-
-    user_account {
-      username = "root"
-      keys     = [var.ssh_public_key]
-    }
-  }
-
-  depends_on = [proxmox_virtual_environment_vm.rancher_1]
-}
-
-resource "proxmox_virtual_environment_vm" "rancher_3" {
-  name        = "rancher-3"
-  node_name   = var.proxmox_node
-  vm_id       = var.vm_id_start + 2
-  description = "Rancher Kubernetes Control Plane Node 3"
-
-  clone {
-    vm_id = 9100
-    full  = true
-  }
-
-  cpu {
-    cores = var.rancher_cpu_cores
-    type  = "host"
-  }
-
-  memory {
-    dedicated = var.rancher_memory
-  }
-
-  network_device {
-    bridge = var.network_bridge
-    model  = "virtio"
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "${var.ip_address_base}.${var.ip_start + 2}/24"
-        gateway = var.gateway
-      }
-    }
-
-    dns {
-      servers = [var.nameserver]
-    }
-
-    user_account {
-      username = "root"
-      keys     = [var.ssh_public_key]
-    }
-  }
-
-  depends_on = [proxmox_virtual_environment_vm.rancher_2]
 }
 
 # ===== VMs PAYLOAD MASTERS =====
+
 resource "proxmox_virtual_environment_vm" "payload_master_1" {
   name        = "payload-master-1"
   node_name   = var.proxmox_node
@@ -185,7 +66,7 @@ resource "proxmox_virtual_environment_vm" "payload_master_1" {
     }
   }
 
-  depends_on = [proxmox_virtual_environment_vm.rancher_3]
+  depends_on = [null_resource.rocky_template]
 }
 
 resource "proxmox_virtual_environment_vm" "payload_master_2" {
@@ -281,6 +162,7 @@ resource "proxmox_virtual_environment_vm" "payload_master_3" {
 }
 
 # ===== VMs PAYLOAD WORKERS =====
+
 resource "proxmox_virtual_environment_vm" "payload_worker_1" {
   name        = "payload-worker-1"
   node_name   = var.proxmox_node
@@ -418,52 +300,3 @@ resource "proxmox_virtual_environment_vm" "payload_worker_3" {
 
   depends_on = [proxmox_virtual_environment_vm.payload_worker_2]
 }
-
-# ===== VM CI/CD =====
-resource "proxmox_virtual_environment_vm" "cicd" {
-  name        = "cicd"
-  node_name   = var.proxmox_node
-  vm_id       = var.vm_id_start + 9
-  description = "CI/CD Server"
-
-  clone {
-    vm_id = 9100
-    full  = true
-  }
-
-  cpu {
-    cores = var.cicd_cpu_cores
-    type  = "host"
-  }
-
-  memory {
-    dedicated = var.cicd_memory
-  }
-
-  network_device {
-    bridge = var.network_bridge
-    model  = "virtio"
-  }
-
-  initialization {
-    ip_config {
-      ipv4 {
-        address = "${var.ip_address_base}.${var.ip_start + 9}/24"
-        gateway = var.gateway
-      }
-    }
-
-    dns {
-      servers = [var.nameserver]
-    }
-
-    user_account {
-      username = "root"
-      keys     = [var.ssh_public_key]
-    }
-  }
-
-  depends_on = [proxmox_virtual_environment_vm.payload_worker_3]
-}
-
-

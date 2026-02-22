@@ -47,103 +47,83 @@ Infrastructure as Code pour deployer un homelab Kubernetes sur Proxmox VE avec T
 
 ## Prerequis
 
-- Terraform >= 1.12.2
+- Terraform >= 1.2.0
 - Proxmox VE >= 7.0
 - Acces SSH root au serveur Proxmox
 - Reseau configure (vmbr0)
-
-## Utilisation rapide
-
-```bash
-# 1. Cloner le repository
-git clone https://github.com/ngatcheu/datacenter-terraform-promox.git
-cd datacenter-terraform-promox/src
-
-# 2. Configurer vos variables
-cp terraform.tfvars.example terraform.tfvars  # si exemple existe
-# Editez terraform.tfvars avec vos valeurs :
-#   - proxmox_password = "votre-mot-de-passe"
-#   - proxmox_host = "IP-de-votre-proxmox"
-#   - ssh_public_key = "votre-cle-ssh-publique"
-
-# 3. Initialiser Terraform
-terraform init
-
-# 4. Verifier le plan
-terraform plan
-
-# 5. Deployer l'infrastructure
-terraform apply
-
-# 6. Voir le resume du deploiement
-terraform output deployment_summary
-```
-
-### Apres le deploiement
-
-```bash
-# Se connecter a la premiere VM Rancher
-ssh root@192.168.1.110
-
-# Verifier que toutes les VMs sont accessibles
-for i in {110..119}; do ping -c 1 192.168.1.$i; done
-```
 
 ## Structure du projet
 
 ```
 src/
-+-- main.tf                    # Definition des 10 VMs
-+-- variables.tf               # Variables Terraform
-+-- terraform.tfvars           # Valeurs des variables
-+-- providers.tf               # Provider bpg/proxmox v0.50.0
-+-- outputs.tf                 # Outputs (IDs, noms, IPs)
-+-- template-init.tf           # Creation auto du template Rocky 9
-+-- create-rocky9-template.sh  # Script de creation du template
++-- rancher/                      # Workspace independant - 3 VMs Control Plane
+|   +-- main.tf                   # Template Rocky 9 + 3 VMs Rancher
+|   +-- providers.tf              # Provider bpg/proxmox + null
+|   +-- variables.tf              # Variables
+|   +-- terraform.tfvars          # Valeurs
+|   +-- outputs.tf                # Outputs
+|   +-- create-rocky9-template.sh # Script creation template
+|
++-- payload/                      # Workspace independant - 6 VMs Workloads
+|   +-- main.tf                   # Template Rocky 9 + 3 Masters + 3 Workers
+|   +-- providers.tf
+|   +-- variables.tf
+|   +-- terraform.tfvars
+|   +-- outputs.tf
+|   +-- create-rocky9-template.sh
+|
++-- cicd/                         # Workspace independant - 1 VM CI/CD
+    +-- main.tf                   # Template Rocky 9 + VM CI/CD
+    +-- providers.tf
+    +-- variables.tf
+    +-- terraform.tfvars
+    +-- outputs.tf
+    +-- create-rocky9-template.sh
 ```
 
-## Configuration
+Chaque workspace est **completement autonome** : il cree le template Rocky 9 si absent, puis deploie ses VMs.
 
-### 1. Cloner le projet
+## Deploiement
 
-```bash
-git clone <repo-url>
-cd datacenter-terraform-promox/src
-```
+### 1. Configurer les variables
 
-### 2. Configurer les variables
-
-Editez `terraform.tfvars` :
+Dans chaque dossier, editez `terraform.tfvars` :
 
 ```hcl
-# Connexion Proxmox
-proxmox_node     = "devsecops-dojo"
 proxmox_host     = "192.168.1.100"
 proxmox_password = "votre-mot-de-passe"
-
-# Reseau
-ip_address_base = "192.168.1"
-ip_start        = 110
-gateway         = "192.168.1.1"
-nameserver      = "192.168.1.1"
-network_bridge  = "vmbr0"
-
-# SSH
-ssh_public_key = "ssh-rsa AAAAB3..."
-
-# Stockage
-vm_storage = "local-lvm"
+proxmox_node     = "devsecops-dojo"
+ssh_public_key   = "ssh-rsa AAAAB3..."
 ```
 
-### 3. Deployer
+### 2. Deployer workspace par workspace
 
 ```bash
+# Cluster Rancher (Control Plane)
+cd src/rancher
 terraform init
-terraform plan
+terraform apply
+
+# Cluster Payload (Masters + Workers)
+cd ../payload
+terraform init
+terraform apply
+
+# Serveur CI/CD
+cd ../cicd
+terraform init
 terraform apply
 ```
 
-Le template Rocky Linux 9 sera cree automatiquement via SSH si absent.
+### Apres le deploiement
+
+```bash
+# Verifier que toutes les VMs sont accessibles
+for i in {110..119}; do ping -c 1 192.168.1.$i; done
+
+# Se connecter a la premiere VM Rancher
+ssh root@192.168.1.110
+```
 
 ## Variables disponibles
 
@@ -181,7 +161,7 @@ Le template Rocky Linux 9 sera cree automatiquement via SSH si absent.
 
 ## Template Rocky Linux 9
 
-Le template cloud-init est cree automatiquement avec :
+Le template cloud-init est cree automatiquement au premier `terraform apply` de chaque workspace via SSH sur le Proxmox.
 
 - **ID** : 9100
 - **Nom** : rocky-9-cloud-template
@@ -190,31 +170,32 @@ Le template cloud-init est cree automatiquement avec :
 
 Si le template existe deja (ID 9100), le script ne fait rien.
 
-### Creation manuelle
+### Creation manuelle sur le serveur Proxmox
 
 ```bash
-# Sur le serveur Proxmox
 bash /tmp/create-rocky9-template.sh
 ```
 
 ## Outputs
 
-Apres `terraform apply` :
+Apres `terraform apply` dans chaque workspace :
 
 ```bash
-# Voir tous les outputs
-terraform output
+# Rancher
+cd src/rancher
+terraform output vm_names
+terraform output vm_ids
 
-# Outputs disponibles
-terraform output rancher_vm_names
-terraform output rancher_vm_ids
-terraform output payload_vm_names
-terraform output payload_vm_ids
-terraform output cicd_vm_name
-terraform output cicd_vm_id
-terraform output all_vm_names
-terraform output all_vm_ids
-terraform output deployment_summary
+# Payload
+cd src/payload
+terraform output vm_names
+terraform output vm_ids
+
+# CI/CD
+cd src/cicd
+terraform output vm_name
+terraform output vm_id
+terraform output vm_ip
 ```
 
 ## Commandes utiles
@@ -238,7 +219,7 @@ terraform show
 # Detruire une VM specifique
 terraform destroy -target=proxmox_virtual_environment_vm.cicd
 
-# Detruire tout
+# Detruire tout le workspace
 terraform destroy
 ```
 
@@ -251,24 +232,16 @@ terraform destroy
 qm list | grep 9100
 
 # Creer manuellement
-bash /tmp/create-rocky9-template.sh
+scp src/cicd/create-rocky9-template.sh root@192.168.1.100:/tmp/
+ssh root@192.168.1.100 bash /tmp/create-rocky9-template.sh
 ```
 
 ### VMs deja existantes
 
 ```bash
-# Avec Terraform
-terraform destroy
-
 # Manuellement sur Proxmox
 for i in {110..119}; do qm stop $i; qm destroy $i; done
 ```
-
-### Erreur de connexion SSH
-
-1. Verifier que la VM est demarree : `qm status <ID>`
-2. Verifier cloud-init : Console Proxmox > VM > Console
-3. Verifier la cle SSH dans terraform.tfvars
 
 ### Erreur provider Proxmox
 
@@ -288,7 +261,6 @@ terraform init
 
 - **Provider** : [bpg/proxmox](https://registry.terraform.io/providers/bpg/proxmox/latest)
 - **Version** : 0.50.0
-- **Documentation** : https://registry.terraform.io/providers/bpg/proxmox/latest/docs
 
 ## Prochaines etapes
 
