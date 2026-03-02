@@ -43,6 +43,13 @@ resource "proxmox_virtual_environment_vm" "cicd" {
     dedicated = var.cicd_memory
   }
 
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
+  }
+
   network_device {
     bridge = var.network_bridge
     model  = "virtio"

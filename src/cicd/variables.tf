@@ -49,3 +49,8 @@ variable "cicd_cpu_cores" {
 variable "cicd_memory" {
   type = number
 }
+
+variable "disk_size" {
+  type    = number
+  default = 60
+}

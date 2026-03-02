@@ -13,6 +13,7 @@ nameserver      = "192.168.1.1"
 # === Ressources Payload Masters ===
 payload_master_cpu_cores = 2
 payload_master_memory    = 4096  # 4 GB RAM
+disk_size                = 60    # 60 GB
 
 # === Ressources Payload Workers ===
 payload_worker_cpu_cores = 3

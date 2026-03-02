@@ -57,3 +57,8 @@ variable "payload_worker_cpu_cores" {
 variable "payload_worker_memory" {
   type = number
 }
+
+variable "disk_size" {
+  type    = number
+  default = 60
+}

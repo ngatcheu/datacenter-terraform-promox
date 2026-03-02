@@ -43,6 +43,13 @@ resource "proxmox_virtual_environment_vm" "payload_master_1" {
     dedicated = var.payload_master_memory
   }
 
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
+  }
+
   network_device {
     bridge = var.network_bridge
     model  = "virtio"
@@ -89,6 +96,13 @@ resource "proxmox_virtual_environment_vm" "payload_master_2" {
     dedicated = var.payload_master_memory
   }
 
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
+  }
+
   network_device {
     bridge = var.network_bridge
     model  = "virtio"
@@ -133,6 +147,13 @@ resource "proxmox_virtual_environment_vm" "payload_master_3" {
 
   memory {
     dedicated = var.payload_master_memory
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
   }
 
   network_device {
@@ -183,6 +204,13 @@ resource "proxmox_virtual_environment_vm" "payload_worker_1" {
     dedicated = var.payload_worker_memory
   }
 
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
+  }
+
   network_device {
     bridge = var.network_bridge
     model  = "virtio"
@@ -229,6 +257,13 @@ resource "proxmox_virtual_environment_vm" "payload_worker_2" {
     dedicated = var.payload_worker_memory
   }
 
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
+  }
+
   network_device {
     bridge = var.network_bridge
     model  = "virtio"
@@ -273,6 +308,13 @@ resource "proxmox_virtual_environment_vm" "payload_worker_3" {
 
   memory {
     dedicated = var.payload_worker_memory
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = var.disk_size
+    interface    = "scsi0"
+    file_format  = "raw"
   }
 
   network_device {

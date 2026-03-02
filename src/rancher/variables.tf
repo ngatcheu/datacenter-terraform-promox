@@ -49,3 +49,8 @@ variable "rancher_cpu_cores" {
 variable "rancher_memory" {
   type = number
 }
+
+variable "disk_size" {
+  type    = number
+  default = 60
+}
